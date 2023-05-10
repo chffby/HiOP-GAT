@@ -133,9 +133,6 @@ class SpKBGATModified(nn.Module):
         self.entity_embeddings.data = F.normalize(
             self.entity_embeddings.data, p=2, dim=1).detach()
 
-        # self.relation_embeddings.data = F.normalize(
-        #     self.relation_embeddings.data, p=2, dim=1)
-
         out_entity_1, out_relation_1 = self.sparse_gat_1(
             Corpus_, batch_inputs, self.entity_embeddings, self.relation_embeddings,
             edge_list, edge_type, edge_embed, edge_list_nhop, edge_type_nhop, train_indices_nhop)
@@ -201,19 +198,10 @@ class GlKBGATModified(nn.Module):
         nn.init.xavier_uniform_(self.W_2hop.data, gain=1.414)
 
     def forward(self, Corpus_, adj, batch_inputs, train_node2vec_indices,train_node2vec_edge_indices):
-        # getting edge list
         edge_list = adj[0]
         edge_type = adj[1]
-        # node2vec_list = node2vec(train_indices_nhop[:, 3],trai`n`_indices_nhop[:, 3])
         train_indices_nhop = torch.cat((train_node2vec_indices[:, 0].unsqueeze(-1), train_node2vec_edge_indices[:, 0].unsqueeze(-1),
                                         train_node2vec_edge_indices[:, 1].unsqueeze(-1),train_node2vec_indices[:, 1].unsqueeze(-1)), dim=1)
-
-        # edge_list_nhop = torch.cat(
-        #     (train_indices_nhop[:, 3].unsqueeze(-1), train_indices_nhop[:, 0].unsqueeze(-1)), dim=1).t()#2-hop头尾节点
-        # edge_type_nhop = torch.cat(
-        #     [train_indices_nhop[:, 1].unsqueeze(-1), train_indices_nhop[:, 2].unsqueeze(-1)], dim=1)#2-hop边
-        # edge_list_node2vec = torch.cat(
-        #     (train_node2vec_indices[:, 0].unsqueeze(-1), train_node2vec_indices[:,1].unsqueeze(-1)), dim=1).t()
 
         if(CUDA):
             edge_list = edge_list.cuda()
@@ -225,9 +213,6 @@ class GlKBGATModified(nn.Module):
 
         self.entity_embeddings.data = F.normalize(
             self.entity_embeddings.data, p=2, dim=1).detach()
-        # F.normalize将某一个维度除以那个维度对应的范数(默认是2范数),作用是让数据保持一个比较稳定的分布,从而加速收敛
-        # detach()函数用于从文档中移除匹配的元素。神经网络的训练有时候可能希望保持一部分的网络参数不变，只对其中一部分的参数进行调整；或者值训练
-        # 部分分支网络，并不让其梯度对主网络的梯度造成影响，torch.tensor.detach()和torch.tensor.detach_()函数来切断一些分支的反向传播。
         i = 0
         while i < train_node2vec_indices.shape[1] - 1:
             edge_list_node2vec = torch.cat(
@@ -241,16 +226,12 @@ class GlKBGATModified(nn.Module):
             if (CUDA):
                 edge_list_node2vec = edge_list_node2vec.cuda()
                 edge_type_node2vec = edge_type_node2vec.cuda()
-            # out_entity_2hop = self.out_entity_nhop.mm(self.W_2hop)
-            # out_relation_2hop = self.out_relation_nhop.mm(self.W_2hop)
             out_entity_nhop, out_relation_nhop = self.sparse_gat_1(
                 Corpus_, batch_inputs, self.entity_embeddings, self.relation_embeddings,
                 edge_list, edge_type, edge_embed, edge_list_node2vec, edge_type_node2vec,train_indices_nhop)
             out_entity_nhop += out_entity_nhop
             out_relation_nhop += out_relation_nhop
 
-        # out_entity_1 = out_entity_nhop + out_entity_node2vec
-        # out_relation_1 = out_relation_nhop + out_relation_node2vec
         out_entity_1 = out_entity_nhop
         out_relation_1 = out_relation_nhop
 
@@ -262,7 +243,7 @@ class GlKBGATModified(nn.Module):
         out_entity_1 = entities_upgraded + \
             mask.unsqueeze(-1).expand_as(out_entity_1) * out_entity_1
 
-        out_entity_1 = F.normalize(out_entity_1, p=2, dim=1)#归一化函数,二维矩阵中， dim=1表示在行内进行归一化，dim=0表示在列内进行归一化。
+        out_entity_1 = F.normalize(out_entity_1, p=2, dim=1)
 
         self.final_entity_embeddings.data = out_entity_1.data
         self.final_relation_embeddings.data = out_relation_1.data
